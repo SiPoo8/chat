@@ -58,7 +58,7 @@ You should see:
 
 Connected to the chat server!
 
-3️⃣ Chat Commands
+Chat Commands
 
 Send message: Type your message and press Enter
 
@@ -68,7 +68,7 @@ Quit chat: /quit
 
 All messages are broadcast to every connected client.
 
-🔧 Notes
+Notes
 
 Default server port is 9999. If you get Address already in use, either:
 
