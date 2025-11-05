@@ -18,12 +18,6 @@ This project includes a **server** and a **client** that can communicate in real
 ---
 
 ## 💻 Project Structure
-├── src/
-│ ├── Server.java
-│ └── Client.java
-├── README.md
-└── .gitignore
-
 
 
 - **Server.java** – Handles incoming connections, broadcasts messages, and manages connected clients.
@@ -39,13 +33,13 @@ This project includes a **server** and a **client** that can communicate in real
 
 ---
 
-## 🚀 How to Run
+##  How to Run
 
-### 1️⃣ Start the Server
+### 1️ Start the Server
 
 ```bash
 javac src/Server.java
-java src.Server
+java src/Server
 
 
 You should see:
@@ -57,7 +51,7 @@ Server started on port 9999...
 Open a new terminal (for each client) and run:
 
 javac src/Client.java
-java src.Client
+java src/Client
 
 
 You should see:

@@ -4,14 +4,14 @@ import java.net.Socket;
 public class Client implements Runnable {
     private Socket client;
     private BufferedReader in;
-    private PrintWriter out;
+    private BufferedWriter out;
     private boolean done;
 
     @Override
     public void run() {
         try {
             client = new Socket("127.0.0.1", 9999);
-            out = new PrintWriter(client.getOutputStream(), true);
+            out = new BufferedWriter(new OutputStreamWriter(client.getOutputStream()));
             in = new BufferedReader(new InputStreamReader(client.getInputStream()));
 
             System.out.println("Connected to the chat server!");
@@ -50,12 +50,17 @@ public class Client implements Runnable {
                 while (!done) {
                     String message = input.readLine();
                     if (message.equals("/quit")) {
-                        out.println(message); // notify server
+                        out.write(message); // notify server
+                        out.flush();
+
                         input.close();
                         shutdown();
                         break;
                     } else {
-                        out.println(message);
+                        out.write(message);
+                        out.newLine();
+                        out.flush();
+
                     }
                 }
             } catch (IOException e) {
@@ -65,7 +70,7 @@ public class Client implements Runnable {
     }
 
     public static void main(String[] args) {
-        Client client = new Client();
-        client.run();
+        Thread clientThread = new Thread(new Client());
+        clientThread.start();
     }
 }

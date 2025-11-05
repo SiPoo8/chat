@@ -1,7 +1,4 @@
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.PrintWriter;
+import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
@@ -25,9 +22,10 @@ public class Server implements Runnable {
         try {
             server = new ServerSocket(9999);
             pool = Executors.newCachedThreadPool();
+            System.out.println("Server started on port 9999...");
             while (!done) {
-                Socket client = server.accept();
-                ConnectionHandler Handler = new ConnectionHandler(client);
+                Socket connection = server.accept();
+                ConnectionHandler Handler = new ConnectionHandler(connection);
                 connections.add(Handler);
                 pool.execute(Handler);
             }
@@ -39,9 +37,7 @@ public class Server implements Runnable {
 
     public void broadcast(String message) {
         for (ConnectionHandler connection : connections) {
-            if (connection != null) {
-                connection.sendMessage(message);
-            }
+            connection.sendMessage(message + "\n\t");
         }
     }
 
@@ -53,6 +49,7 @@ public class Server implements Runnable {
             }
             for (ConnectionHandler connection : connections) {
                 connection.shutdown();
+                connections.remove(connection);
             }
         } catch (IOException e) {
             // Not Handleble
@@ -62,23 +59,25 @@ public class Server implements Runnable {
 
     class ConnectionHandler implements Runnable {
 
-        private Socket client;
+        private final Socket connection;
         private BufferedReader in;
-        private PrintWriter out;
+        private BufferedWriter out;
         private String name;
 
 
-        public ConnectionHandler(Socket client) {
-            this.client = client;
+        public ConnectionHandler(Socket connection) {
+            this.connection = connection;
         }
 
 
         @Override
         public void run() {
             try {
-                out = new PrintWriter(client.getOutputStream(), true);
-                in = new BufferedReader(new InputStreamReader(client.getInputStream()));
-                out.println("Please enter your name:");
+                out = new BufferedWriter(new OutputStreamWriter(connection.getOutputStream()));
+                in = new BufferedReader(new InputStreamReader(connection.getInputStream()));
+                out.write("Please enter your name: " + "\n\t");
+                out.flush();
+
                 name = in.readLine();
                 System.out.println(name + " joined the server");
                 broadcast("Welcome " + name);
@@ -90,13 +89,15 @@ public class Server implements Runnable {
                             broadcast(name + " renamed themselves to" + messageSplit[1]);
                             System.out.println(name + " renamed themselves to" + messageSplit[1]);
                             name = messageSplit[1];
-                            out.println("Successfully changed name to" + messageSplit[1]);
+                            out.write("Successfully changed name to" + messageSplit[1]);
+                            out.flush();
                         } else {
-                            out.println("No name provided");
+                            out.write("No name provided");
+                            out.flush();
                         }
 
                     } else if (message.startsWith("/quit")) {
-                        broadcast(name + "left the server");
+                        broadcast(name + "left the server" );
                         shutdown();
                     } else {
                         broadcast(name + ": " + message);
@@ -108,7 +109,12 @@ public class Server implements Runnable {
         }
 
         public void sendMessage(String message) {
-            out.println(message);
+            try {
+                out.write(message);
+                out.flush();
+            } catch (IOException e) {
+                // ignore
+            }
         }
 
         public void shutdown() {
@@ -116,8 +122,8 @@ public class Server implements Runnable {
                 in.close();
                 out.close();
 
-                if (!client.isClosed()) {
-                    client.close();
+                if (!connection.isClosed()) {
+                    connection.close();
                 }
             } catch (IOException e) {
                 // Cant be handled
@@ -130,12 +136,10 @@ public class Server implements Runnable {
 
 
     public static void main(String[] args) {
-        Server server = new Server();
-        server.run();
+        Thread serverThread = new Thread(new Server());
+        serverThread.start();
+
     }
-
-
-
 
 
 }
