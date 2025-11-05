@@ -101,11 +101,6 @@ Support network connections beyond localhost
 
 
 
----
-
-If you want, I can now **give you a complete step-by-step guide with this README.md and your project folder ready to push to GitHub**, so you literally just run the commands and it’s online.  
-
-Do you want me to do that next?
 
 
 
