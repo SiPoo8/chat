@@ -1,21 +1,15 @@
 import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.ArrayList;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class Server implements Runnable {
-    private ArrayList<ConnectionHandler> connections;
+    private final CopyOnWriteArrayList<ConnectionHandler> connections = new CopyOnWriteArrayList<>();
     private ServerSocket server;
     private boolean done;
     private ExecutorService pool;
-
-    public Server() {
-        connections = new ArrayList<>();
-        done = false;
-    }
-
 
     @Override
     public void run() {
@@ -23,123 +17,124 @@ public class Server implements Runnable {
             server = new ServerSocket(9999);
             pool = Executors.newCachedThreadPool();
             System.out.println("Server started on port 9999...");
+
             while (!done) {
                 Socket connection = server.accept();
-                ConnectionHandler Handler = new ConnectionHandler(connection);
-                connections.add(Handler);
-                pool.execute(Handler);
+                ConnectionHandler handler = new ConnectionHandler(connection);
+                connections.add(handler);
+                pool.execute(handler);
             }
-        } catch (Exception e) {
-            shutdown();
+        } catch (IOException e) {
+            shutdownServer();
         }
-
     }
 
     public void broadcast(String message) {
-        for (ConnectionHandler connection : connections) {
-            connection.sendMessage(message + "\n\t");
+        for (ConnectionHandler client : connections) {
+            client.sendMessage(message);
         }
     }
 
-    public void shutdown() {
+    public void shutdownServer() {
+        done = true;
         try {
-            done = true;
-            if (!server.isClosed()) {
-                server.close();
-            }
-            for (ConnectionHandler connection : connections) {
-                connection.shutdown();
-                connections.remove(connection);
+            if (server != null && !server.isClosed()) server.close();
+            for (ConnectionHandler client : connections) {
+                client.shutdownClient();
             }
         } catch (IOException e) {
-            // Not Handleble
+            e.printStackTrace();
         }
     }
 
+    public void removeClient(ConnectionHandler client) {
+        connections.remove(client);
+        System.out.println(client.getName() + " disconnected.");
+    }
 
     class ConnectionHandler implements Runnable {
-
         private final Socket connection;
         private BufferedReader in;
         private BufferedWriter out;
         private String name;
 
-
         public ConnectionHandler(Socket connection) {
             this.connection = connection;
         }
 
+        public String getName() {
+            return name;
+        }
 
         @Override
         public void run() {
             try {
-                out = new BufferedWriter(new OutputStreamWriter(connection.getOutputStream()));
                 in = new BufferedReader(new InputStreamReader(connection.getInputStream()));
-                out.write("Please enter your name: " + "\n\t");
+                out = new BufferedWriter(new OutputStreamWriter(connection.getOutputStream()));
+
+                // Ask for name
+                out.write("Please enter your name:");
+                out.newLine();
                 out.flush();
 
                 name = in.readLine();
                 System.out.println(name + " joined the server");
                 broadcast("Welcome " + name);
+
                 String message;
                 while ((message = in.readLine()) != null) {
                     if (message.startsWith("/name")) {
-                        String[] messageSplit = message.split(" ", 2);
-                        if (messageSplit.length == 2) {
-                            broadcast(name + " renamed themselves to" + messageSplit[1]);
-                            System.out.println(name + " renamed themselves to" + messageSplit[1]);
-                            name = messageSplit[1];
-                            out.write("Successfully changed name to" + messageSplit[1]);
+                        String[] parts = message.split(" ", 2);
+                        if (parts.length == 2) {
+                            String oldName = name;
+                            name = parts[1];
+                            broadcast(oldName + " changed name to " + name);
+                            out.write("Successfully changed name to " + name);
+                            out.newLine();
                             out.flush();
                         } else {
                             out.write("No name provided");
+                            out.newLine();
                             out.flush();
                         }
-
                     } else if (message.startsWith("/quit")) {
-                        broadcast(name + "left the server" );
-                        shutdown();
+                        broadcast(name + " left the server");
+                        shutdownClient();
+                        break;
                     } else {
                         broadcast(name + ": " + message);
                     }
                 }
-            } catch (Exception e) {
-                shutdown();
+            } catch (IOException e) {
+                shutdownClient();
             }
         }
 
         public void sendMessage(String message) {
             try {
                 out.write(message);
+                out.newLine();
                 out.flush();
             } catch (IOException e) {
-                // ignore
+                shutdownClient();
             }
         }
 
-        public void shutdown() {
+        public void shutdownClient() {
             try {
-                in.close();
-                out.close();
-
-                if (!connection.isClosed()) {
-                    connection.close();
-                }
+                if (in != null) in.close();
+                if (out != null) out.close();
+                if (!connection.isClosed()) connection.close();
             } catch (IOException e) {
-                // Cant be handled
+                e.printStackTrace();
+            } finally {
+                removeClient(this);
             }
-
         }
-
-
     }
-
 
     public static void main(String[] args) {
         Thread serverThread = new Thread(new Server());
         serverThread.start();
-
     }
-
-
 }

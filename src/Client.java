@@ -11,20 +11,31 @@ public class Client implements Runnable {
     public void run() {
         try {
             client = new Socket("127.0.0.1", 9999);
-            out = new BufferedWriter(new OutputStreamWriter(client.getOutputStream()));
             in = new BufferedReader(new InputStreamReader(client.getInputStream()));
+            out = new BufferedWriter(new OutputStreamWriter(client.getOutputStream()));
 
-            System.out.println("Connected to the chat server!");
+            // Read server prompt
+            String serverMessage = in.readLine();
+            System.out.println(serverMessage);
 
-            InputHandler inHandler = new InputHandler();
-            Thread thread = new Thread(inHandler);
-            thread.start();
+            BufferedReader userInput = new BufferedReader(new InputStreamReader(System.in));
+            String name = userInput.readLine(); // send name
+            out.write(name);
+            out.newLine();
+            out.flush();
 
+            System.out.println("Connected to server as " + name + "!");
+
+            // Start input handler thread for sending messages
+            new Thread(new InputHandler()).start();
+
+            // Listen for server messages
             String inMessage;
             while ((inMessage = in.readLine()) != null) {
                 System.out.println(inMessage);
             }
-        } catch (Exception e) {
+
+        } catch (IOException e) {
             shutdown();
         }
     }
@@ -34,11 +45,9 @@ public class Client implements Runnable {
         try {
             if (in != null) in.close();
             if (out != null) out.close();
-            if (client != null && !client.isClosed()) {
-                client.close();
-            }
-        } catch (Exception e) {
-            // ignore
+            if (client != null && !client.isClosed()) client.close();
+        } catch (IOException e) {
+            e.printStackTrace();
         }
     }
 
@@ -46,21 +55,19 @@ public class Client implements Runnable {
         @Override
         public void run() {
             try {
-                BufferedReader input = new BufferedReader(new InputStreamReader(System.in));
+                BufferedReader userInput = new BufferedReader(new InputStreamReader(System.in));
                 while (!done) {
-                    String message = input.readLine();
+                    String message = userInput.readLine();
                     if (message.equals("/quit")) {
-                        out.write(message); // notify server
+                        out.write(message);
+                        out.newLine();
                         out.flush();
-
-                        input.close();
                         shutdown();
                         break;
                     } else {
                         out.write(message);
                         out.newLine();
                         out.flush();
-
                     }
                 }
             } catch (IOException e) {
@@ -70,7 +77,6 @@ public class Client implements Runnable {
     }
 
     public static void main(String[] args) {
-        Thread clientThread = new Thread(new Client());
-        clientThread.start();
+        new Thread(new Client()).start();
     }
 }
